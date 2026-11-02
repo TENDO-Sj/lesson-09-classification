@@ -178,21 +178,3 @@ fixed_info_texts = []
 for feat in other_features:
     med_val = df_train[feat].median()
     fixed_values[feat] = med_val
-    fixed_info_texts.append(f"**{feature_name_map[feat]}**: 훈련 데이터 중앙값({med_val:.2f})")
-
-st.info(f"📌 **고정된 속성 값 안내**: 두 축 외의 속성들은 다음과 같이 고정하여 계산되었습니다: " + ", ".join(fixed_info_texts))
-
-fig = px.scatter(
-    df_test_vis,
-    x=x_col,
-    y=y_col,
-    color="stroke_label",
-    labels={x_col: x_axis_korean, y_col: y_axis_korean, "stroke_label": "실제 뇌졸중 여부"},
-    title="테스트 데이터 산점도 및 결정 경계"
-)
-
-x_min, x_max = df_test[x_col].min(), df_test[x_col].max()
-y_min, y_max = df_test[y_col].min(), df_test[y_col].max()
-
-x_range = x_max - x_min if x_max != x_min else 1
-y_range
