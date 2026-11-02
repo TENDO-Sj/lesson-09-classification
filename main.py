@@ -13,10 +13,10 @@ st.set_page_config(
 
 # 2. 화면 맨 위 제목과 아이콘
 st.title("🧠 뇌졸중 예측 실습실")
-st.write("뇌졸중 데이터셋을 탐색하고 각 열의 의미를 정리하는 실습 공간입니다.")
+st.write("뇌졸중 데이터셋을 탐색하고 각 열의 의미와 출처를 기록하는 실습 공간입니다.")
 
-# 3. 데이터 불러오기 (요청하신 새로운 주소 적용)
-DATA_URL = "https://raw.githubusercontent.com/TENDO-Sj/lesson09-distinguish/refs/heads/main/stroke.csv"
+# 3. 데이터 불러오기
+DATA_URL = "https://raw.githubusercontent.com/TENDO-Sj/data/refs/heads/main/stroke.csv"
 
 @st.cache_data
 def load_data():
