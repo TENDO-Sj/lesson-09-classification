@@ -13,7 +13,7 @@ st.set_page_config(
 
 # 2. 화면 맨 위 제목과 아이콘
 st.title("🧠 뇌졸중 예측 실습실")
-st.write("뇌졸중 데이터셋을 탐색하고 각 열의 의미와 출처를 기록하는 실습 공간입니다.")
+st.write("뇌졸중 데이터셋을 탐색하고 각 열의 의미와 값의 모양을 정리하는 실습 공간입니다.")
 
 # 3. 데이터 불러오기
 DATA_URL = "https://raw.githubusercontent.com/TENDO-Sj/data/refs/heads/main/stroke.csv"
@@ -52,16 +52,33 @@ if os.path.exists(meta_path):
     except Exception:
         pass
 
-# 6. 열 정보 요약 표 생성 (우리말 뜻은 저장된 값 또는 빈 칸)
+# 6. 이미지에 맞춘 '값의 모양' 정의 (열 이름별 정확한 값 종류 설명)
+value_shape_dict = {
+    "id": "중복 없는 번호",
+    "gender": "Female 여성 · Male 남성 · Other 기타",
+    "age": "숫자. 한 살 미만은 0.08처럼 적혀 있음",
+    "hypertension": "1 있음 · 0 없음",
+    "heart_disease": "1 있음 · 0 없음",
+    "ever_married": "Yes 있음 · No 없음",
+    "work_type": "Private 민간 기업 · Self-employed 자영업 · Govt_job 공무원 · children 아동 · Never_worked 근무 경험 없음",
+    "Residence_type": "Urban 도시 · Rural 농촌",
+    "avg_glucose_level": "숫자",
+    "bmi": "숫자. 비어 있는 값이 있음",
+    "smoking_status": "never smoked 피운 적 없음 · formerly smoked 예전에 피움 · smokes 피움 · Unknown 알 수 없음",
+    "stroke": "1 겪음 · 0 겪지 않음"
+}
+
+# 열 정보 요약 표 생성 (우리말 뜻은 저장된 값 또는 빈 칸, 값의 모양은 이미지와 일치시킴)
 summary_data = []
 for col in df.columns:
-    dtype = str(df[col].dtype)
     missing_count = int(df[col].isnull().sum())
     saved_meaning = meta_data.get("meanings", {}).get(col, "")
+    value_shape = value_shape_dict.get(col, str(df[col].dtype))
+    
     summary_data.append({
         "열 이름": col,
         "우리말 뜻": saved_meaning,
-        "값의 종류": dtype,
+        "값의 모양": value_shape,
         "빈 값 개수": missing_count
     })
 
@@ -76,7 +93,7 @@ edited_summary = st.data_editor(
     column_config={
         "열 이름": st.column_config.TextColumn("열 이름", disabled=True),
         "우리말 뜻": st.column_config.TextColumn("우리말 뜻 (여기에 입력하세요)", required=False),
-        "값의 종류": st.column_config.TextColumn("값의 종류", disabled=True),
+        "값의 모양": st.column_config.TextColumn("값의 모양", disabled=True),
         "빈 값 개수": st.column_config.NumberColumn("빈 값 개수", disabled=True)
     },
     hide_index=True,
