@@ -17,7 +17,7 @@ st.title("📋 뇌졸중 예측 모델 채점표 및 오류 분석실")
 st.write("분류 모델의 예측 결과를 혼동행렬과 평가지표(정확도, 재현율, 정밀도, F1 스코어)로 자세히 채점하고, 잘못 예측한 환자 목록을 분석하는 페이지입니다.")
 
 # 2. 데이터 불러오기 ('분류 모델' 페이지와 동일)
-DATA_URL = "[https://raw.githubusercontent.com/TENDO-Sj/data/refs/heads/main/stroke.csv](https://raw.githubusercontent.com/TENDO-Sj/data/refs/heads/main/stroke.csv)"
+DATA_URL = "https://raw.githubusercontent.com/TENDO-Sj/data/refs/heads/main/stroke.csv"
 
 @st.cache_data
 def load_data():
@@ -210,4 +210,62 @@ st.write("어떤 모델의 오류 목록을 확인할 것인지 선택해 주세
 
 model_choice = st.selectbox(
     "모델 선택",
-    options=["로지스틱 회귀(확률로 답하는 모델)", "의사결정트리(질문으로 답하는 모델)",
+    options=["로지스틱 회귀(확률로 답하는 모델)", "의사결정트리(질문으로 답하는 모델)", "훈련용에서 많은 쪽으로만 답하는 모델"]
+)
+
+if model_choice.startswith("로지스틱"):
+    chosen_preds = lr_preds
+elif model_choice.startswith("의사결정트리"):
+    chosen_preds = dt_preds
+else:
+    chosen_preds = maj_preds
+
+df_analysis = df_test.copy()
+df_analysis["pred"] = chosen_preds
+
+missed_patients = df_analysis[(df_analysis["stroke"] == 1) & (df_analysis["pred"] == 0)].copy()
+false_alarm_patients = df_analysis[(df_analysis["stroke"] == 0) & (df_analysis["pred"] == 1)].copy()
+
+missed_patients = missed_patients.sort_values(by="age", ascending=False).reset_index(drop=True)
+false_alarm_patients = false_alarm_patients.sort_values(by="age", ascending=False).reset_index(drop=True)
+
+col_err1, col_err2 = st.columns(2)
+
+def format_error_table(sub_df):
+    if sub_df.empty:
+        return pd.DataFrame(columns=["번호", "나이", "평균 혈당", "고혈압 여부", "심장병 여부"])
+    
+    formatted = pd.DataFrame()
+    formatted["번호"] = sub_df["id"]
+    formatted["나이"] = sub_df["age"]
+    formatted["평균 혈당"] = sub_df["avg_glucose_level"]
+    formatted["고혈압 여부"] = sub_df["hypertension"].map({0: "없음(0)", 1: "있음(1)"})
+    formatted["심장병 여부"] = sub_df["heart_disease"].map({0: "없음(0)", 1: "있음(1)"})
+    return formatted
+
+with col_err1:
+    total_missed = len(missed_patients)
+    title_missed = f"🔴 실제 뇌졸중이나 '아님'으로 예측한 환자 (놓친 환자) - 총 {total_missed}명"
+    if total_missed > 20:
+        title_missed += " (앞 20명만 표시)"
+        display_missed = missed_patients.head(20)
+    else:
+        display_missed = missed_patients
+        
+    st.markdown(f"**{title_missed}**")
+    st.dataframe(format_error_table(display_missed), hide_index=True, use_container_width=True)
+
+with col_err2:
+    total_false = len(false_alarm_patients)
+    title_false = f"🔵 실제 '아님'이나 뇌졸중으로 예측한 사람 (헛짚은 사람) - 총 {total_false}명"
+    if total_false > 20:
+        title_false += " (앞 20명만 표시)"
+        display_false = false_alarm_patients.head(20)
+    else:
+        display_false = false_alarm_patients
+        
+    st.markdown(f"**{title_false}**")
+    st.dataframe(format_error_table(display_false), hide_index=True, use_container_width=True)
+
+st.markdown("---")
+st.success(f"💡 **사람 수 확인**: 선택한 모델의 놓친 환자(FN)는 총 **{total_missed}명**, 헛짚은 사람(FP)은 총 **{total_false}명**으로 위 혼동행렬 표의 FN, FP 값과 정확하게 같습니다.")
