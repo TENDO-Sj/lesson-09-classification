@@ -140,4 +140,4 @@ def make_comparison_dataframe(b_tp, b_fp, b_fn, b_tn, b_acc, b_rec, b_prec, b_f1
         "가중치 조정 후 (After)": [
             f"{a_tn:,}", f"{a_fp:,}", f"{a_fn:,}", f"{a_tp:,}",
             f"{a_acc:.4f}", f"{a_rec:.4f}", f"{a_prec:.4f}", f"{a_f1:.4f}"
-        ]
+        ]}
