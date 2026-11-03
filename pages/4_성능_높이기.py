@@ -177,22 +177,6 @@ st.markdown("---")
 # 8. 산점도 및 결정 경계 시각화 (2차원 또는 3차원)
 st.subheader("📈 결정 경계 변화 시각화 (가중치 조정 전 vs 후)")
 
-if len(selected_korean_features) == 2:
-    st.write("선택한 2개의 속성을 가로축과 세로축으로 하는 2차원 산점도와 전후 결정 경계선을 그립니다.")
-    
-    col_f1, col_f2 = st.columns(2)
-    with col_f1:
-        x_axis_korean = st.selectbox("가로축 속성", options=selected_korean_features, index=0, key="perf_x_2d")
-    with col_f2:
-        y_axis_korean = st.selectbox("세로축 속성", options=selected_korean_features, index=1, key="perf_y_2d")
-        
-    x_col = reverse_feature_map[x_axis_korean]
-    y_col = reverse_feature_map[y_axis_korean]
-    
-    df_test_vis = df_test.copy()
-    df_test_vis["stroke_label"] = df_test_vis["stroke"].map({0: "아님(0)", 1: "뇌졸중(1)"})
-    
-    other_features = [f for f in selected_features if f not in [x_col, y_col]]
-    fixed_values = {f: df_train[f].median() for f in other_features}
-    
-    fig = px
+try:
+    if len(selected_korean_features) == 2:
+        st.write("선택한 2개의 속성을
