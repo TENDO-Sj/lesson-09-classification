@@ -164,7 +164,133 @@ with col_t2:
 
 st.markdown("---")
 
-# 7. 변화 요약 줄글 작성 (로지스틱 회귀 기준)
+# 7. 변화 요약 줄글 작성 (로지스틱 회귀 기준) - 삼중 따옴표 오류 방지 분리 작성
 st.subheader("📝 성능 변화 요약")
-st.markdown(f"""
-* **찾아낸
+st.markdown(f"- **찾아낸 환자 수 (TP)**: {lr_b_tp}명에서 **{lr_a_tp}명**으로 바뀌었습니다.")
+st.markdown(f"- **놓친 환자 수 (FN)**: {lr_b_fn}명에서 **{lr_a_fn}명**으로 바뀌었습니다.")
+st.markdown(f"- **헛짚은 사람 수 (FP)**: {lr_b_fp}명에서 **{lr_a_fp}명**으로 바뀌었습니다.")
+
+st.markdown("---")
+
+# 8. 산점도 및 결정 경계 시각화 (2차원 또는 3차원)
+st.subheader("📈 결정 경계 변화 시각화 (가중치 조정 전 vs 후)")
+
+try:
+    if len(selected_korean_features) == 2:
+        st.write("선택한 2개의 속성을 가로축과 세로축으로 하는 2차원 산점도와 전후 결정 경계선을 그립니다.")
+        
+        col_f1, col_f2 = st.columns(2)
+        with col_f1:
+            x_axis_korean = st.selectbox("가로축 속성", options=selected_korean_features, index=0, key="perf_x_2d")
+        with col_f2:
+            y_axis_korean = st.selectbox("세로축 속성", options=selected_korean_features, index=1, key="perf_y_2d")
+            
+        x_col = reverse_feature_map[x_axis_korean]
+        y_col = reverse_feature_map[y_axis_korean]
+        
+        df_test_vis = df_test.copy()
+        df_test_vis["stroke_label"] = df_test_vis["stroke"].map({0: "아님(0)", 1: "뇌졸중(1)"})
+        
+        other_features = [f for f in selected_features if f not in [x_col, y_col]]
+        fixed_values = {f: df_train[f].median() for f in other_features}
+        
+        fig = px.scatter(
+            df_test_vis,
+            x=x_col,
+            y=y_col,
+            color="stroke_label",
+            labels={x_col: x_axis_korean, y_col: y_axis_korean, "stroke_label": "실제 뇌졸중 여부"},
+            title="2차원 산점도 및 가중치 조정 전후 결정 경계 (로지스틱 회귀)"
+        )
+        
+        x_min, x_max = df_test[x_col].min(), df_test[x_col].max()
+        y_min, y_max = df_test[y_col].min(), df_test[y_col].max()
+        x_range = x_max - x_min if x_max != x_min else 1
+        y_range = y_max - y_min if y_max != y_min else 1
+        x_min_plot, x_max_plot = x_min - x_range * 0.1, x_max + x_range * 0.1
+        y_min_plot, y_max_plot = y_min - y_range * 0.1, y_max + y_range * 0.1
+        
+        xx, yy = np.meshgrid(
+            np.linspace(x_min_plot, x_max_plot, 100),
+            np.linspace(y_min_plot, y_max_plot, 100)
+        )
+        
+        grid_df = pd.DataFrame(index=range(xx.ravel().shape[0]))
+        for feat in selected_features:
+            if feat == x_col:
+                grid_df[feat] = xx.ravel()
+            elif feat == y_col:
+                grid_df[feat] = yy.ravel()
+            else:
+                grid_df[feat] = fixed_values[feat]
+                
+        # Before 경계선 (파란색)
+        probs_b = lr_before.predict_proba(grid_df)[:, 1].reshape(xx.shape)
+        fig.add_trace(
+            go.Contour(
+                x=np.linspace(x_min_plot, x_max_plot, 100),
+                y=np.linspace(y_min_plot, y_max_plot, 100),
+                z=probs_b,
+                contours=dict(coloring='lines', showlabels=False),
+                line=dict(color='blue', width=2),
+                name="조정 전 경계(0.5)",
+                showscale=False
+            )
+        )
+        
+        # After 경계선 (주황색)
+        probs_a = lr_after.predict_proba(grid_df)[:, 1].reshape(xx.shape)
+        fig.add_trace(
+            go.Contour(
+                x=np.linspace(x_min_plot, x_max_plot, 100),
+                y=np.linspace(y_min_plot, y_max_plot, 100),
+                z=probs_a,
+                contours=dict(coloring='lines', showlabels=False),
+                line=dict(color='orange', width=2),
+                name="조정 후 경계(0.5)",
+                showscale=False
+            )
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+        
+        if (probs_b.min() > 0.5 or probs_b.max() < 0.5) and (probs_a.min() > 0.5 or probs_a.max() < 0.5):
+            st.caption("ℹ️ 안내: 조정 전과 후의 0.5 경계선 모두 현재 그림 범위 밖에 있습니다.")
+        elif probs_b.min() > 0.5 or probs_b.max() < 0.5:
+            st.caption("ℹ️ 안내: 가중치 조정 전(파란색) 0.5 경계선이 현재 그림 범위 밖에 있습니다.")
+        elif probs_a.min() > 0.5 or probs_a.max() < 0.5:
+            st.caption("ℹ️ 안내: 가중치 조정 후(주황색) 0.5 경계선이 현재 그림 범위 밖에 있습니다.")
+        else:
+            st.caption("ℹ️ 파란색 실선은 가중치 조정 전(Before) 0.5 경계선, 주황색 실선은 가중치 조정 후(After) 0.5 경계선입니다.")
+
+    else:
+        st.write("선택한 속성이 3개 이상이므로, 3가지 축을 골라 3차원 산점도를 보여드립니다.")
+        
+        col_31, col_32, col_33 = st.columns(3)
+        with col_31:
+            x_axis_korean = st.selectbox("X축 속성", options=selected_korean_features, index=0, key="perf_x_3d")
+        with col_32:
+            y_axis_korean = st.selectbox("Y축 속성", options=selected_korean_features, index=1, key="perf_y_3d")
+        with col_33:
+            z_axis_korean = st.selectbox("Z축 속성", options=selected_korean_features, index=min(2, len(selected_korean_features)-1), key="perf_z_3d")
+            
+        x_col = reverse_feature_map[x_axis_korean]
+        y_col = reverse_feature_map[y_axis_korean]
+        z_col = reverse_feature_map[z_axis_korean]
+        
+        df_test_vis = df_test.copy()
+        df_test_vis["stroke_label"] = df_test_vis["stroke"].map({0: "아님(0)", 1: "뇌졸중(1)"})
+        
+        fig = px.scatter_3d(
+            df_test_vis,
+            x=x_col,
+            y=y_col,
+            z=z_col,
+            color="stroke_label",
+            labels={x_col: x_axis_korean, y_col: y_axis_korean, z_col: z_axis_korean, "stroke_label": "실제 뇌졸중 여부"},
+            title="3차원 산점도 (로지스틱 회귀 가중치 조정 전후 비교)"
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        st.caption("ℹ️ 선택한 3개의 속성 축에 따른 3차원 산점도입니다. 마우스로 회전하여 살펴보세요.")
+except Exception as e:
+    st.info("ℹ️ 시각화 렌더링 중 오류가 발생하여 표와 요약 결과만 우선 표시됩니다.")
