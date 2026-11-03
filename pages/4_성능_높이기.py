@@ -127,10 +127,17 @@ dt_a_tn, dt_a_fp, dt_a_fn, dt_a_tp, dt_a_acc, dt_a_rec, dt_a_prec, dt_a_f1 = get
 
 # 6. 결과 표 비교 출력
 st.subheader("📊 클래스 가중치 조정 전·후 모델 성능 비교")
-st.write("가중치 조정을 적용하기 전(`class_weight=None`)과 맞춘 후(`class_weight='balanced'`)의 혼동행렬 및 평가지표를 나란히 비교합니다.")
+st.write("가중치 조정을 적용하기 전과 맞춘 후의 혼동행렬 및 평가지표를 나란히 비교합니다.")
 
 def make_comparison_dataframe(b_tp, b_fp, b_fn, b_tn, b_acc, b_rec, b_prec, b_f1,
                               a_tp, a_fp, a_fn, a_tn, a_acc, a_rec, a_prec, a_f1):
     data = {
         "평가 항목": ["TN (참음성)", "FP (거짓양성)", "FN (거짓음성)", "TP (참양성)", "정확도 (Accuracy)", "재현율 (Recall)", "정밀도 (Precision)", "F1 스코어"],
-        "가중치 조정 전
+        "가중치 조정 전 (Before)": [
+            f"{b_tn:,}", f"{b_fp:,}", f"{b_fn:,}", f"{b_tp:,}",
+            f"{b_acc:.4f}", f"{b_rec:.4f}", f"{b_prec:.4f}", f"{b_f1:.4f}"
+        ],
+        "가중치 조정 후 (After)": [
+            f"{a_tn:,}", f"{a_fp:,}", f"{a_fn:,}", f"{a_tp:,}",
+            f"{a_acc:.4f}", f"{a_rec:.4f}", f"{a_prec:.4f}", f"{a_f1:.4f}"
+        ]
