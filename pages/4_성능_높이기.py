@@ -167,16 +167,4 @@ st.markdown("---")
 # 7. 변화 요약 줄글 작성 (로지스틱 회귀 기준)
 st.subheader("📝 성능 변화 요약")
 st.markdown(f"""
-* **찾아낸 환자 수 (TP)**: {lr_b_tp}명에서 **{lr_a_tp}명**으로 바뀌었습니다.
-* **놓친 환자 수 (FN)**: {lr_b_fn}명에서 **{lr_a_fn}명**으로 바뀌었습니다.
-* **헛짚은 사람 수 (FP)**: {lr_b_fp}명에서 **{lr_a_fp}명**으로 바뀌었습니다.
-""")
-
-st.markdown("---")
-
-# 8. 산점도 및 결정 경계 시각화 (2차원 또는 3차원)
-st.subheader("📈 결정 경계 변화 시각화 (가중치 조정 전 vs 후)")
-
-try:
-    if len(selected_korean_features) == 2:
-        st.write("선택한 2개의 속성을
+* **찾아낸
