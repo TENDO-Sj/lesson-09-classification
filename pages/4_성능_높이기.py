@@ -140,4 +140,59 @@ def make_comparison_dataframe(b_tp, b_fp, b_fn, b_tn, b_acc, b_rec, b_prec, b_f1
         "가중치 조정 후 (After)": [
             f"{a_tn:,}", f"{a_fp:,}", f"{a_fn:,}", f"{a_tp:,}",
             f"{a_acc:.4f}", f"{a_rec:.4f}", f"{a_prec:.4f}", f"{a_f1:.4f}"
-        ]}
+        ]
+    }
+    return pd.DataFrame(data)
+
+col_t1, col_t2 = st.columns(2)
+
+with col_t1:
+    st.markdown("**로지스틱 회귀(확률로 답하는 모델)**")
+    lr_df_comp = make_comparison_dataframe(
+        lr_b_tp, lr_b_fp, lr_b_fn, lr_b_tn, lr_b_acc, lr_b_rec, lr_b_prec, lr_b_f1,
+        lr_a_tp, lr_a_fp, lr_a_fn, lr_a_tn, lr_a_acc, lr_a_rec, lr_a_prec, lr_a_f1
+    )
+    st.dataframe(lr_df_comp, hide_index=True, use_container_width=True)
+
+with col_t2:
+    st.markdown("**의사결정트리(질문으로 답하는 모델)**")
+    dt_df_comp = make_comparison_dataframe(
+        dt_b_tp, dt_b_fp, dt_b_fn, dt_b_tn, dt_b_acc, dt_b_rec, dt_b_prec, dt_b_f1,
+        dt_a_tp, dt_a_fp, dt_a_fn, dt_a_tn, dt_a_acc, dt_a_rec, dt_a_prec, dt_a_f1
+    )
+    st.dataframe(dt_df_comp, hide_index=True, use_container_width=True)
+
+st.markdown("---")
+
+# 7. 변화 요약 줄글 작성 (로지스틱 회귀 기준)
+st.subheader("📝 성능 변화 요약")
+st.markdown(f"""
+* **찾아낸 환자 수 (TP)**: {lr_b_tp}명에서 **{lr_a_tp}명**으로 바뀌었습니다.
+* **놓친 환자 수 (FN)**: {lr_b_fn}명에서 **{lr_a_fn}명**으로 바뀌었습니다.
+* **헛짚은 사람 수 (FP)**: {lr_b_fp}명에서 **{lr_a_fp}명**으로 바뀌었습니다.
+""")
+
+st.markdown("---")
+
+# 8. 산점도 및 결정 경계 시각화 (2차원 또는 3차원)
+st.subheader("📈 결정 경계 변화 시각화 (가중치 조정 전 vs 후)")
+
+if len(selected_korean_features) == 2:
+    st.write("선택한 2개의 속성을 가로축과 세로축으로 하는 2차원 산점도와 전후 결정 경계선을 그립니다.")
+    
+    col_f1, col_f2 = st.columns(2)
+    with col_f1:
+        x_axis_korean = st.selectbox("가로축 속성", options=selected_korean_features, index=0, key="perf_x_2d")
+    with col_f2:
+        y_axis_korean = st.selectbox("세로축 속성", options=selected_korean_features, index=1, key="perf_y_2d")
+        
+    x_col = reverse_feature_map[x_axis_korean]
+    y_col = reverse_feature_map[y_axis_korean]
+    
+    df_test_vis = df_test.copy()
+    df_test_vis["stroke_label"] = df_test_vis["stroke"].map({0: "아님(0)", 1: "뇌졸중(1)"})
+    
+    other_features = [f for f in selected_features if f not in [x_col, y_col]]
+    fixed_values = {f: df_train[f].median() for f in other_features}
+    
+    fig = px
