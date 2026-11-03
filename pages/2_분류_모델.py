@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
+import plotly.graph_objects as go
 from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import accuracy_score
@@ -32,7 +33,6 @@ st.markdown("---")
 st.subheader("⚙️ 모델 입력 속성(특징) 선택")
 st.write("입력으로 사용할 속성을 고르세요. (처음에는 체질량지수를 뺀 넷이 선택되어 있습니다)")
 
-# 매핑 사전 정의
 feature_name_map = {
     "age": "나이",
     "avg_glucose_level": "평균 혈당",
@@ -41,7 +41,6 @@ feature_name_map = {
     "heart_disease": "심장병"
 }
 
-# 역방향 매핑 (우리말 -> 원본 열 이름)
 reverse_feature_map = {v: k for k, v in feature_name_map.items()}
 
 default_korean_features = ["나이", "평균 혈당", "고혈압", "심장병"]
@@ -53,17 +52,15 @@ selected_korean_features = st.multiselect(
     default=default_korean_features
 )
 
-# 두 개보다 적게 고르면 안내문을 표시하고 멈춤
 if len(selected_korean_features) < 2:
     st.warning("⚠️ 속성을 2개 이상 선택해 주세요!")
     st.stop()
 
-# 선택된 우리말 속성을 원본 열 이름으로 변환
 selected_features = [reverse_feature_map[k] for k in selected_korean_features]
 
 st.markdown("---")
 
-# 4. 데이터 전처리 및 훈련/테스트셋 분할 (조건 반영)
+# 4. 데이터 전처리 및 훈련/테스트셋 분할
 df_sorted = df.sort_values("id").reset_index(drop=True)
 
 test_indices = []
@@ -80,13 +77,11 @@ for i in range(0, len(df_sorted), 10):
 df_train = df_sorted.loc[train_indices].copy()
 df_test = df_sorted.loc[test_indices].copy()
 
-# 체질량지수(bmi)는 비어 있는 사람이 있으니 고른 경우에만 훈련용의 중앙값으로 채움
 if "bmi" in selected_features:
     bmi_median = df_train["bmi"].median()
     df_train["bmi"] = df_train["bmi"].fillna(bmi_median)
     df_test["bmi"] = df_test["bmi"].fillna(bmi_median)
 
-# X, y 분리 (stroke가 1이면 양성/뇌졸중, 0이면 아님)
 X_train = df_train[selected_features]
 y_train = df_train["stroke"]
 
@@ -178,3 +173,143 @@ fixed_info_texts = []
 for feat in other_features:
     med_val = df_train[feat].median()
     fixed_values[feat] = med_val
+    fixed_info_texts.append(f"**{feature_name_map[feat]}**: 훈련 데이터 중앙값({med_val:.2f})")
+
+st.info(f"📌 **고정된 속성 값 안내**: 두 축 외의 속성들은 다음과 같이 고정하여 계산되었습니다: " + ", ".join(fixed_info_texts))
+
+fig = px.scatter(
+    df_test_vis,
+    x=x_col,
+    y=y_col,
+    color="stroke_label",
+    labels={x_col: x_axis_korean, y_col: y_axis_korean, "stroke_label": "실제 뇌졸중 여부"},
+    title="테스트 데이터 산점도 및 결정 경계"
+)
+
+x_min, x_max = df_test[x_col].min(), df_test[x_col].max()
+y_min, y_max = df_test[y_col].min(), df_test[y_col].max()
+
+x_range = x_max - x_min if x_max != x_min else 1
+y_range = y_max - y_min if y_max != y_min else 1
+x_min_plot, x_max_plot = x_min - x_range * 0.1, x_max + x_range * 0.1
+y_min_plot, y_max_plot = y_min - y_range * 0.1, y_max + y_range * 0.1
+
+xx, yy = np.meshgrid(
+    np.linspace(x_min_plot, x_max_plot, 100),
+    np.linspace(y_min_plot, y_max_plot, 100)
+)
+
+grid_df = pd.DataFrame(index=range(xx.ravel().shape[0]))
+for feat in selected_features:
+    if feat == x_col:
+        grid_df[feat] = xx.ravel()
+    elif feat == y_col:
+        grid_df[feat] = yy.ravel()
+    else:
+        grid_df[feat] = fixed_values[feat]
+
+try:
+    probs = lr_model.predict_proba(grid_df)[:, 1]
+    zz_lr = probs.reshape(xx.shape)
+    
+    fig.add_trace(
+        go.Contour(
+            x=np.linspace(x_min_plot, x_max_plot, 100),
+            y=np.linspace(y_min_plot, y_max_plot, 100),
+            z=zz_lr,
+            contours=dict(coloring='lines', showlabels=True, labelfont=dict(size=12, color='red')),
+            line=dict(color='red', width=2),
+            name="로지스틱 경계(확률 0.5)",
+            showscale=False
+        )
+    )
+    
+    if zz_lr.min() > 0.5 or zz_lr.max() < 0.5:
+        st.caption("ℹ️ 참고: 로지스틱 회귀 모델이 0.5로 가르는 경계선이 현재 보고 있는 그림 범위 밖에 있습니다.")
+    else:
+        st.caption("ℹ️ 빨간색 실선은 로지스틱 회귀 모델이 확률 0.5로 예측하는 경계선입니다.")
+except Exception as e:
+    st.warning("로지스틱 경계선 그리기 중 오류가 발생했습니다.")
+
+if x_col in selected_features and y_col in selected_features:
+    zz_dt = dt_model.predict(grid_df).reshape(xx.shape)
+    fig.add_trace(
+        go.Contour(
+            x=np.linspace(x_min_plot, x_max_plot, 100),
+            y=np.linspace(y_min_plot, y_max_plot, 100),
+            z=zz_dt,
+            contours=dict(coloring='fill'),
+            opacity=0.15,
+            colorscale=[[0, 'blue'], [1, 'orange']],
+            showscale=False,
+            name="의사결정트리 영역"
+        )
+    )
+
+st.plotly_chart(fig, use_container_width=True)
+
+st.markdown("---")
+
+# 8. 의사결정트리 가지 그림 (Graphviz DOT 문자열 이용)
+st.subheader("🌳 의사결정트리 질문 구조 (가지 그림)")
+st.write("의사결정트리 모델이 학습한 질문과 마디별 데이터 분포입니다.")
+
+n_nodes = dt_model.tree_.node_count
+children_left = dt_model.tree_.children_left
+children_right = dt_model.tree_.children_right
+feature_indices = dt_model.tree_.feature
+thresholds = dt_model.tree_.threshold
+values = dt_model.tree_.value
+
+dot_lines = ["digraph Tree {", "node [shape=box, style=\"filled, rounded\", fontname=\"sans-serif\"];"]
+
+asked_features_set = set()
+
+for i in range(n_nodes):
+    val = values[i][0]
+    total_samples = int(val.sum())
+    stroke_samples = int(val[1]) if len(val) > 1 else 0
+    ratio = (stroke_samples / total_samples * 100) if total_samples > 0 else 0
+    
+    if children_left[i] != children_right[i]:
+        feat_idx = feature_indices[i]
+        orig_feat_name = selected_features[feat_idx]
+        korean_feat_name = feature_name_map[orig_feat_name]
+        asked_features_set.add(korean_feat_name)
+        
+        thresh = thresholds[i]
+        label_text = f"{korean_feat_name} <= {thresh:.2f}\\n인원: {total_samples}명\\n뇌졸중: {stroke_samples}명\\n비율: {ratio:.1f}%"
+        dot_lines.append(f'  {i} [label="{label_text}", fillcolor="#e5f5f9"];')
+    else:
+        fill_value = "#fee6ce" if ratio > 20 else "#deebf7"
+        label_text = f"결과 답변\\n인원: {total_samples}명\\n뇌졸중: {stroke_samples}명\\n비율: {ratio:.1f}%"
+        dot_lines.append(f'  {i} [label="{label_text}", fillcolor="{fill_value}"];')
+    
+    if children_left[i] != children_right[i]:
+        dot_lines.append(f'  {i} -> {children_left[i]} [label="예"];')
+        dot_lines.append(f'  {i} -> {children_right[i]} [label="아니요"];')
+
+dot_lines.append("}")
+dot_string = "\n".join(dot_lines)
+
+st.graphviz_chart(dot_string)
+
+# 9. 나무 해석 요약 한 줄씩 적기
+st.markdown("### 📝 의사결정트리 분석 요약")
+
+leaf_nodes_count = 0
+not_stroke_leaf_count = 0
+
+for i in range(n_nodes):
+    if children_left[i] == children_right[i]:
+        leaf_nodes_count += 1
+        val = values[i][0]
+        if len(val) > 1 and val[0] >= val[1]:
+            not_stroke_leaf_count += 1
+        elif len(val) == 1:
+            not_stroke_leaf_count += 1
+
+asked_features_list_str = ", ".join(list(asked_features_set)) if asked_features_set else "없음"
+
+st.markdown(f"* **답을 내는 마디 개수**: 총 **{leaf_nodes_count}칸**이며, 그중 **{not_stroke_leaf_count}칸**이 뇌졸중 '아님'으로 답하고 있습니다.")
+st.markdown(f"* **실제로 물은 속성**: 고른 속성 가운데 이 나무가 실제로 질문에 사용한 것은 **[{asked_features_list_str}]**입니다.")
