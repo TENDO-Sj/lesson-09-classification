@@ -17,7 +17,7 @@ st.title("📋 뇌졸중 예측 모델 채점표 및 오류 분석실")
 st.write("분류 모델의 예측 결과를 혼동행렬과 평가지표(정확도, 재현율, 정밀도, F1 스코어)로 자세히 채점하고, 잘못 예측한 환자 목록을 분석하는 페이지입니다.")
 
 # 2. 데이터 불러오기 ('분류 모델' 페이지와 동일)
-DATA_URL = "https://raw.githubusercontent.com/TENDO-Sj/data/refs/heads/main/stroke.csv"
+DATA_URL = "[https://raw.githubusercontent.com/TENDO-Sj/data/refs/heads/main/stroke.csv](https://raw.githubusercontent.com/TENDO-Sj/data/refs/heads/main/stroke.csv)"
 
 @st.cache_data
 def load_data():
@@ -95,17 +95,14 @@ test_stroke_count = int((y_test == 1).sum())
 st.info(f"📊 **테스트 데이터 현황**: 테스트용 사람 수는 **{test_total_count:,}명**, 그중 실제 뇌졸중인 사람은 **{test_stroke_count:,}명**입니다.")
 
 # 5. 모델 학습 및 예측
-# 1) 로지스틱 회귀 (확률로 답하는 모델)
 lr_model = LogisticRegression(random_state=42, max_iter=1000)
 lr_model.fit(X_train, y_train)
 lr_preds = lr_model.predict(X_test)
 
-# 2) 의사결정트리 (질문으로 답하는 모델)
 dt_model = DecisionTreeClassifier(max_depth=3, min_samples_leaf=5, random_state=42)
 dt_model.fit(X_train, y_train)
 dt_preds = dt_model.predict(X_test)
 
-# 3) 다수결 기준 모델
 majority_class = y_train.mode()[0]
 maj_preds = np.array([majority_class] * len(y_test))
 
@@ -167,4 +164,50 @@ def calculate_metrics(tp, fp, fn, tn, y_true, preds):
             f1 = 2 * precision * recall / (precision + recall)
             f1_str = f"{f1:.4f}"
         else:
-            f1_str = "0.00
+            f1_str = "0.0000"
+        precision_str = f"{precision:.4f}"
+    else:
+        precision_str = "계산할 수 없음"
+        f1_str = "계산할 수 없음"
+        
+    return acc, recall, precision_str, f1_str
+
+lr_acc, lr_rec, lr_prec_str, lr_f1_str = calculate_metrics(lr_tp, lr_fp, lr_fn, lr_tn, y_test, lr_preds)
+dt_acc, dt_rec, dt_prec_str, dt_f1_str = calculate_metrics(dt_tp, dt_fp, dt_fn, dt_tn, y_test, dt_preds)
+maj_acc, maj_rec, maj_prec_str, maj_f1_str = calculate_metrics(maj_tp, maj_fp, maj_fn, maj_tn, y_test, maj_preds)
+
+metrics_data = [
+    {
+        "모델 이름": "로지스틱 회귀(확률로 답하는 모델)",
+        "정확도": f"{lr_acc:.4f}",
+        "재현율": f"{lr_rec:.4f}",
+        "정밀도": lr_prec_str,
+        "F1 스코어": lr_f1_str
+    },
+    {
+        "모델 이름": "의사결정트리(질문으로 답하는 모델)",
+        "정확도": f"{dt_acc:.4f}",
+        "재현율": f"{dt_rec:.4f}",
+        "정밀도": dt_prec_str,
+        "F1 스코어": dt_f1_str
+    },
+    {
+        "모델 이름": "훈련용에서 많은 쪽으로만 답하는 모델",
+        "정확도": f"{maj_acc:.4f}",
+        "재현율": f"{maj_rec:.4f}",
+        "정밀도": maj_prec_str,
+        "F1 스코어": maj_f1_str
+    }
+]
+
+st.dataframe(pd.DataFrame(metrics_data), hide_index=True, use_container_width=True)
+
+st.markdown("---")
+
+# 9. 오류 예측 환자 상세 분석
+st.subheader("🔍 오류 예측 환자 상세 분석")
+st.write("어떤 모델의 오류 목록을 확인할 것인지 선택해 주세요.")
+
+model_choice = st.selectbox(
+    "모델 선택",
+    options=["로지스틱 회귀(확률로 답하는 모델)", "의사결정트리(질문으로 답하는 모델)",
